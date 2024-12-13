@@ -1,0 +1,20 @@
+MODULE rotatd_I
+    IMPLICIT NONE
+    INTERFACE
+        SUBROUTINE rotatd(IP, JP, IA, IB, JA, JB, NI, NJ, CI, CJ, W, LMW, ENUC)
+            INTEGER, INTENT(IN) :: IP, JP, IA, IB, JA, JB, NI, NJ, LMW
+            REAL(KIND=8), INTENT(IN) :: CI(3), CJ(3)
+            REAL(KIND=8), INTENT(INOUT) :: W(*)
+            REAL(KIND=8), INTENT(OUT) :: ENUC
+        END SUBROUTINE rotatd
+    END INTERFACE
+END MODULE rotatd_I
+
+SUBROUTINE rotatd(IP, JP, IA, IB, JA, JB, NI, NJ, CI, CJ, W, LMW, ENUC)
+    INTEGER, INTENT(IN) :: IP, JP, IA, IB, JA, JB, NI, NJ, LMW
+    REAL(KIND=8), INTENT(IN) :: CI(3), CJ(3)
+    REAL(KIND=8), INTENT(INOUT) :: W(*)
+    REAL(KIND=8), INTENT(OUT) :: ENUC
+
+    ENUC = SUM(CI) + SUM(CJ)
+END SUBROUTINE rotatd

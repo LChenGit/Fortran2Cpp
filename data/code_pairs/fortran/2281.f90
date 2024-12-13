@@ -1,0 +1,17 @@
+SUBROUTINE RSCO (RSAV, ISAV)
+      INTEGER ISAV(*), I, ILS(33), LENILS, LENRLS
+      REAL RSAV(*), RLS(218)
+      COMMON /DEBDF1/ RLS, ILS
+      SAVE LENRLS, LENILS
+      DATA LENRLS /218/, LENILS /33/
+
+      DO I = 1, LENRLS
+         RLS(I) = RSAV(I)
+      END DO
+
+      DO I = 1, LENILS
+         ILS(I) = ISAV(I)
+      END DO
+
+      RETURN
+END

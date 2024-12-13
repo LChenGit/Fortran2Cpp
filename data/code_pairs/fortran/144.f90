@@ -1,0 +1,3 @@
+subroutine to_combat_compiler_stupidity()
+  return
+end subroutine to_combat_compiler_stupidity

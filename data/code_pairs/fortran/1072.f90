@@ -1,0 +1,49 @@
+SUBROUTINE EGRID(ENER, DEL, NBINS)
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: NBINS
+    REAL, DIMENSION(NBINS), INTENT(OUT) :: ENER, DEL
+    INTEGER :: N
+
+    DO N = 1, NBINS
+        IF (N .LE. 21) THEN
+            ENER(N) = 0.5 * REAL(N)
+        ELSE
+            ENER(N) = EXP(0.05 * REAL(N + 26))
+        END IF
+    END DO
+
+    DEL(1) = 0.5
+    DO N = 2, NBINS
+        DEL(N) = ENER(N) - ENER(N-1)
+    END DO
+    DO N = 1, NBINS
+        ENER(N) = ENER(N) - DEL(N) / 2.0
+    END DO
+END SUBROUTINE EGRID
+
+PROGRAM testEGRID
+    IMPLICIT NONE
+    INTEGER, PARAMETER :: NBINS_SMALL = 1, NBINS_MODERATE = 21, NBINS_LARGE = 100
+    REAL, ALLOCATABLE :: ENER(:), DEL(:)
+    INTEGER :: i
+
+    CALL TEST_EGRID(NBINS_SMALL)
+    CALL TEST_EGRID(NBINS_MODERATE)
+    CALL TEST_EGRID(NBINS_LARGE)
+
+CONTAINS
+
+    SUBROUTINE TEST_EGRID(NBINS)
+        INTEGER, INTENT(IN) :: NBINS
+        ALLOCATE(ENER(NBINS), DEL(NBINS))
+        CALL EGRID(ENER, DEL, NBINS)
+
+        PRINT *, 'Testing number of bins:', NBINS
+        DO i = 1, NBINS
+            PRINT *, 'Bin', i, ': ENER =', ENER(i), ', DEL =', DEL(i)
+        END DO
+        PRINT *, '---------------------------------'
+        DEALLOCATE(ENER, DEL)
+    END SUBROUTINE TEST_EGRID
+
+END PROGRAM testEGRID

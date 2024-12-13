@@ -1,0 +1,1 @@
+// Typically, you might define the struct in a header file for reusability and organization.

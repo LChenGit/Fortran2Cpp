@@ -1,0 +1,28 @@
+MODULE vast_kind_param
+  INTEGER, PARAMETER :: DOUBLE = SELECTED_REAL_KIND(15, 307)
+END MODULE vast_kind_param
+
+MODULE hplusf_I   
+  INTERFACE
+    SUBROUTINE hplusf (F, H, NORBS) 
+      USE vast_kind_param, ONLY: DOUBLE
+      INTEGER, INTENT(IN) :: NORBS  
+      REAL(DOUBLE), DIMENSION(NORBS,NORBS), INTENT(INOUT) :: F 
+      REAL(DOUBLE), DIMENSION(NORBS,NORBS), INTENT(IN) :: H       
+    END SUBROUTINE hplusf  
+  END INTERFACE 
+END MODULE hplusf_I
+
+SUBROUTINE hplusf(F, H, NORBS)
+  USE vast_kind_param, ONLY: DOUBLE
+  INTEGER, INTENT(IN) :: NORBS
+  REAL(DOUBLE), DIMENSION(NORBS, NORBS), INTENT(INOUT) :: F
+  REAL(DOUBLE), DIMENSION(NORBS, NORBS), INTENT(IN) :: H
+  INTEGER :: i, j
+  
+  DO i = 1, NORBS
+    DO j = 1, NORBS
+      F(i, j) = F(i, j) + H(i, j)
+    END DO
+  END DO
+END SUBROUTINE hplusf

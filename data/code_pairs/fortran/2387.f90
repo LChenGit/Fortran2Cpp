@@ -1,0 +1,9 @@
+SUBROUTINE iau_PVUP ( DT, PV, P )
+    IMPLICIT NONE
+    DOUBLE PRECISION DT, PV(3,2), P(3)
+    INTEGER I
+
+    DO I=1,3
+        P(I) = PV(I,1) + PV(I,2)*DT
+    END DO
+END SUBROUTINE iau_PVUP

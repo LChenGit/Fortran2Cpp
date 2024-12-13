@@ -1,0 +1,50 @@
+MODULE SlaSvdsolMod
+  IMPLICIT NONE
+CONTAINS
+  SUBROUTINE sla_SVDSOL(M, N, MP, NP, B, U, W, V, WORK, X)
+    INTEGER, INTENT(IN) :: M,N,MP,NP
+    DOUBLE PRECISION, INTENT(IN) :: B(M),U(MP,NP),W(N),V(NP,NP)
+    DOUBLE PRECISION, INTENT(OUT) :: WORK(N),X(N)
+
+    INTEGER :: J,I,JJ
+    DOUBLE PRECISION :: S
+
+    DO J=1,N
+       S=0D0
+       IF (W(J).NE.0D0) THEN
+          DO I=1,M
+             S=S+U(I,J)*B(I)
+          END DO
+          S=S/W(J)
+       END IF
+       WORK(J)=S
+    END DO
+
+    DO J=1,N
+       S=0D0
+       DO JJ=1,N
+          S=S+V(J,JJ)*WORK(JJ)
+       END DO
+       X(J)=S
+    END DO
+  END SUBROUTINE sla_SVDSOL
+END MODULE SlaSvdsolMod
+
+PROGRAM test_sla_SVDSOL
+  USE SlaSvdsolMod
+  IMPLICIT NONE
+  INTEGER, PARAMETER :: M=2, N=2, MP=2, NP=2
+  DOUBLE PRECISION :: B(M) = (/1.0D0, 2.0D0/)
+  DOUBLE PRECISION :: U(MP,NP) = RESHAPE((/1.0D0, 0.0D0, 0.0D0, 1.0D0/), SHAPE(U))
+  DOUBLE PRECISION :: W(N) = (/1.0D0, 2.0D0/)
+  DOUBLE PRECISION :: V(NP,NP) = RESHAPE((/1.0D0, 0.0D0, 0.0D0, 1.0D0/), SHAPE(V))
+  DOUBLE PRECISION :: WORK(N), X(N)
+  INTEGER :: I
+
+  CALL sla_SVDSOL(M, N, MP, NP, B, U, W, V, WORK, X)
+
+  PRINT *, "X:"
+  DO I=1, N
+    PRINT *, X(I)
+  END DO
+END PROGRAM test_sla_SVDSOL

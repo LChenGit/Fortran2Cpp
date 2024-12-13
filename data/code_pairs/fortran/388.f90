@@ -1,0 +1,4 @@
+MODULE kind_params_mod
+  IMPLICIT NONE
+  INTEGER, PARAMETER :: wp = SELECTED_REAL_KIND(12, 307)
+END MODULE kind_params_mod

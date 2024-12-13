@@ -1,0 +1,20 @@
+! dorgql_genmod.f90
+MODULE DORGQL__genmod
+  INTERFACE 
+    SUBROUTINE DORGQL(M,N,K,A,LDA,TAU,WORK,LWORK,INFO)
+      INTEGER(KIND=4) :: LDA, M, N, K, INFO
+      REAL(KIND=8) :: A(LDA,*), TAU(*), WORK(*)
+    END SUBROUTINE DORGQL
+  END INTERFACE 
+END MODULE DORGQL__genmod
+
+SUBROUTINE DORGQL(M,N,K,A,LDA,TAU,WORK,LWORK,INFO)
+  INTEGER(KIND=4) :: LDA, M, N, K, I, J, INFO
+  REAL(KIND=8) :: A(LDA,*), TAU(*), WORK(*)
+  INFO = 0
+  DO J = 1, N
+    DO I = 1, M
+      A(I, J) = M + N + K  ! Simple operation for demonstration
+    END DO
+  END DO
+END SUBROUTINE DORGQL

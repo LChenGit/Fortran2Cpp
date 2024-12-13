@@ -1,0 +1,8 @@
+SUBROUTINE GRTRML(CTERM, LTERM)
+      CHARACTER*(*) CTERM
+      INTEGER LTERM
+
+      CTERM = 'CON'
+      LTERM = 3
+      RETURN
+      END

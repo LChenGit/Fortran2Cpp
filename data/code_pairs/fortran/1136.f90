@@ -1,0 +1,8 @@
+! assign_flx_genmod.f90
+MODULE ASSIGN_FLX__genmod
+  IMPLICIT NONE
+  CONTAINS
+    SUBROUTINE ASSIGN_FLX
+      PRINT *, "ASSIGN_FLX subroutine called"
+    END SUBROUTINE ASSIGN_FLX
+END MODULE ASSIGN_FLX__genmod

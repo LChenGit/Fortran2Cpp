@@ -1,0 +1,19 @@
+SUBROUTINE iau_PXP ( A, B, AXB )
+
+  IMPLICIT NONE
+
+  DOUBLE PRECISION A(3), B(3), AXB(3)
+
+  DOUBLE PRECISION XA, YA, ZA, XB, YB, ZB
+
+  XA = A(1)
+  YA = A(2)
+  ZA = A(3)
+  XB = B(1)
+  YB = B(2)
+  ZB = B(3)
+  AXB(1) = YA*ZB - ZA*YB
+  AXB(2) = ZA*XB - XA*ZB
+  AXB(3) = XA*YB - YA*XB
+
+END SUBROUTINE iau_PXP

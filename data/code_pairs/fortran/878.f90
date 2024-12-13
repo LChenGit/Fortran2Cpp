@@ -1,0 +1,28 @@
+MODULE A22_MODULE
+  COMMON /T/ A
+END MODULE A22_MODULE
+
+SUBROUTINE A22_4_WRONG()
+  USE A22_MODULE
+  ! This subroutine would utilize 'A' in a real scenario.
+END SUBROUTINE A22_4_WRONG
+
+PROGRAM testA22
+  USE A22_MODULE
+  IMPLICIT NONE
+
+  CALL testA22_4_WRONG()
+
+CONTAINS
+
+  SUBROUTINE testA22_4_WRONG()
+    A = 5
+    CALL A22_4_WRONG()
+    IF (A == 5) THEN
+      PRINT *, "Test Passed: A is 5"
+    ELSE
+      PRINT *, "Test Failed: A is not 5"
+    END IF
+  END SUBROUTINE testA22_4_WRONG
+
+END PROGRAM testA22

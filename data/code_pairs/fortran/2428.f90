@@ -1,0 +1,23 @@
+! IDAYWK.f90
+MODULE IDAYWK__genmod
+  IMPLICIT NONE
+CONTAINS
+  FUNCTION IDAYWK(JDAYNO)
+    INTEGER(KIND=4), INTENT(IN) :: JDAYNO
+    INTEGER(KIND=4) :: IDAYWK
+    IDAYWK = JDAYNO + 1  ! Simple example operation
+  END FUNCTION IDAYWK
+END MODULE IDAYWK__genmod
+
+PROGRAM test_IDAYWK
+  USE IDAYWK__genmod
+  IMPLICIT NONE
+
+  INTEGER(KIND=4) :: result
+  INTEGER(KIND=4) :: JDAYNO
+
+  ! Example test case
+  JDAYNO = 123
+  result = IDAYWK(JDAYNO)
+  PRINT *, 'Fortran Result: ', result
+END PROGRAM test_IDAYWK

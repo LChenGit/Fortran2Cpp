@@ -1,0 +1,18 @@
+SUBROUTINE ZDSCAL(N,DA,ZX,INCX)
+    DOUBLE PRECISION DA
+    INTEGER INCX,N
+    DOUBLE COMPLEX ZX(*)
+    INTEGER I,NINCX
+    IF (N.LE.0 .OR. INCX.LE.0) RETURN
+    IF (INCX.EQ.1) THEN
+        DO I = 1,N
+            ZX(I) = DCMPLX(DA,0.0d0)*ZX(I)
+        END DO
+    ELSE
+        NINCX = N*INCX
+        DO I = 1,NINCX,INCX
+            ZX(I) = DCMPLX(DA,0.0d0)*ZX(I)
+        END DO
+    END IF
+    RETURN
+END SUBROUTINE ZDSCAL

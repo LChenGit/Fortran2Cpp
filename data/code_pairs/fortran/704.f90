@@ -1,0 +1,8 @@
+MODULE geoutg_mod
+  IMPLICIT NONE
+CONTAINS
+  SUBROUTINE geoutg(IPRT)
+    INTEGER, INTENT(IN) :: IPRT
+    PRINT *, 'IPRT = ', IPRT
+  END SUBROUTINE geoutg
+END MODULE geoutg_mod
