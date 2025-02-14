@@ -236,11 +236,50 @@ handle data like this:
 ```
 Put the first part of message to the first colunm of csv file and the last part(`<Assistant1,2,3>`) to the second column.
 
-You can achieve that by runing this command `python training/utils/data/spliting_multiturns_dialogue.py`
+You can achieve that by runing this command `python training/utils/data/splitting_multiturns_dialogue.py`
 
 Input file is `data/F2C_dialogue_2.5K.json`
 
 The converted json file is shown in `data/F2C_dialogue_2.5K_test.json`
+
+For example, input Json
+
+```json
+[
+    {
+        "id": "conv1",
+        "messages": [
+            {"role": "user", "content": "Hi"},
+            {"role": "assistant", "content": "Hello!"},
+            {"role": "user", "content": "How are you?"},
+            {"role": "assistant", "content": "I'm good, thank you."}
+        ]
+    }
+]
+```
+will be split into the following output json
+
+```json
+[
+    {
+        "id": "conv1",
+        "messages": [
+            {"role": "user", "content": "Hi"},
+            {"role": "assistant", "content": "Hello!"}
+        ]
+    },
+    {
+        "id": "conv1",
+        "messages": [
+            {"role": "user", "content": "Hi"},
+            {"role": "assistant", "content": "Hello!"},
+            {"role": "user", "content": "How are you?"},
+            {"role": "assistant", "content": "I'm good, thank you."}
+        ]
+    }
+]
+```
+
 
 3. Start traning by running
 
