@@ -1,0 +1,31 @@
+INTEGER FUNCTION BKKCRYPT(X)
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: X
+    BKKCRYPT = X
+    RETURN
+END FUNCTION BKKCRYPT
+
+PROGRAM TEST
+    IMPLICIT NONE
+    INTEGER :: TEST1IN
+    INTEGER :: TEST1OUT
+    
+    ! Declare the function interface
+    INTERFACE
+        INTEGER FUNCTION BKKCRYPT(X)
+            INTEGER, INTENT(IN) :: X
+        END FUNCTION BKKCRYPT
+    END INTERFACE
+    
+    TEST1IN = 255
+    TEST1OUT = BKKCRYPT(TEST1IN)
+    
+    ! Unit test check
+    IF (TEST1IN /= TEST1OUT) THEN
+        WRITE(*, *) "Test case failed: assertion failed"
+        CALL EXIT(1)
+    END IF
+    
+    PRINT *, "TEST PASSED"
+    STOP
+END PROGRAM TEST

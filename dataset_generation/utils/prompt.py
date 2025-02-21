@@ -1,8 +1,8 @@
 # Instruction_qer = """
-# You play the role of a questioner, and you need to ask an answerer to give a C++ translation of the corresponding Fortran code through multiple rounds of dialogue. 
-# The flow of the dialogue is as follows: 
-# 1. In the first round of dialogue, you need to ask the answerer to give a C++ translation of the corresponding Fortran code. 
-# 2. In the second round of dialogue, you need to ask the answerer to build Unit tests based on the original Fortran code and the translated C++ code respectively to verify whether the original Fortran code has been translated correctly. 
+# You play the role of a questioner, and you need to ask an answerer to give a C++ translation of the corresponding Fortran code through multiple rounds of dialogue.
+# The flow of the dialogue is as follows:
+# 1. In the first round of dialogue, you need to ask the answerer to give a C++ translation of the corresponding Fortran code.
+# 2. In the second round of dialogue, you need to ask the answerer to build Unit tests based on the original Fortran code and the translated C++ code respectively to verify whether the original Fortran code has been translated correctly.
 
 # You need to keep every conversation concise.
 # Now you play the role of the questioner and ask the answerer about this question: {Fortran_Code}
@@ -51,11 +51,11 @@ C++ Unit test code:
 ```
 """
 # futher_modification = """
-# I now provide you with the output of fortran and cpp unit test execution. 
-# If all unit tests pass, you can tell me the complete version of the correct C++ translation result by using "The correct C++ translation is:". 
-# Otherwise, please help me modify the unit test code and tell me the complete modified version. 
+# I now provide you with the output of fortran and cpp unit test execution.
+# If all unit tests pass, you can tell me the complete version of the correct C++ translation result by using "The correct C++ translation is:".
+# Otherwise, please help me modify the unit test code and tell me the complete modified version.
 # I will continue to help you execute the code.
-# fortran code outputs: {fortran_compile_result} 
+# fortran code outputs: {fortran_compile_result}
 # C++ code result: {cpp_compile_result}
 # """
 
@@ -92,7 +92,7 @@ q_ask_s_translation = """
 Here is my fortran code: {fortran_code}. Now you need to provide a complete question (including code) to the answerer and ask him to translate this fortran code to C++. Don't translate this fortran code by yourself.
 """
 
-q_ask_s_unit_test ="""
+q_ask_s_unit_test = """
 Here is the answer from the solver: {ser_answer}, you now need to ask the answerer to provide the executable Unit tests codes for both the original Fortran code and the translated C++ code. 
 Please add the unit tests to the main function. 
 In c++ code, you should use 'assert' for the unit test checking. One example: assert (has_close_elements((1.0, 2.0, 5.9, 4.0, 5.0), 0.95) == true);
@@ -220,14 +220,14 @@ Reasons:
 Modified C++ Code:
 '''
 
-# Own_model_Y_N =  '''I will provide you a paragraph of Fortran code and a paragraph of translated C++ code, 
-#                   you need to help me to assess if they perform the same function. 
-#                   You only need to tell me whether this Fortran code has been correctly translated into C++ code. 
-#                   If it is, just answer: "Yes". 
+# Own_model_Y_N =  '''I will provide you a paragraph of Fortran code and a paragraph of translated C++ code,
+#                   you need to help me to assess if they perform the same function.
+#                   You only need to tell me whether this Fortran code has been correctly translated into C++ code.
+#                   If it is, just answer: "Yes".
 #                   If not, answer: "No", and provide the reason.Fortran code:{Fortran_code}Translated C++ Code:{Cpp_code}'''
 
 
-Own_model_Y_N =  '''Help me to assess if the translated C++ is correct. 
+Own_model_Y_N = '''Help me to assess if the translated C++ is correct. 
                   Source fortran code: {Fortran_code}
                   Translated C++ Code: {Cpp_code}
                   Answer:'''
