@@ -435,14 +435,14 @@ def update_code_from_history(cuda_code_exe, cpp_code_exe, history):
 #     return f_code_exe, c_code_exe
     
 
-def Ai_chat_with_Ai(key,fortran_code, max_tokens, gpt_model = DEFAULT_MODEL_ID, turns_limitation = 3, idx = 0):
+def Ai_chat_with_Ai(key, cuda_code, max_tokens, gpt_model=DEFAULT_MODEL_ID, turns_limitation=3, idx=0):
     """
-    Simulate a conversation between a questioner and a solver using an AI model to translate Fortran code
+    Simulate a conversation between a questioner and a solver using an AI model to translate CUDA code
     to C++ and generate unit tests, handling errors and updates iteratively.
 
     Args:
         key (str): API key for accessing the AI model.
-        fortran_code (str): The Fortran code to be translated and tested.
+        cuda_code (str): The CUDA code to be translated and tested.
         max_tokens (int): Maximum number of tokens for AI responses.
         gpt_model (str): Model name for the AI.
         turns_limitation (int): Number of modification turns to perform (default is 3).
@@ -454,27 +454,30 @@ def Ai_chat_with_Ai(key,fortran_code, max_tokens, gpt_model = DEFAULT_MODEL_ID, 
     qer_messages = []
     ser_messages = []
     history = []
-    
+
     # define the role of questioner
     m_qer = {
         "role": "system",
-        "content": Instruction_qer
-    }    
-    qer_messages.append(m_qer) # system role defined
-    
-    # Start the conversation
+        "content": Instruction_qer  # must be CUDA-aware prompt
+    }
+    qer_messages.append(m_qer)
+
+    # Start the conversation with the user providing CUDA code
     m_qer = {
         "role": "user",
-        "content": q_ask_s_translation.format(fortran_code = fortran_code)
-    }  
-    qer_messages.append(m_qer) # user provides the question
-    
-    # Questioner asks for the C++ translation from Fortran
-    #-----------------------------------
-    m_qer_gpt = generate_from_GPT(key,prompts=qer_messages, 
-                                max_tokens=max_tokens, 
-                                model=gpt_model, 
-                                n=1)[0]["message"]
+        "content": q_ask_s_translation.format(cuda_code=cuda_code)  # CUDA-based prompt
+    }
+    qer_messages.append(m_qer)
+
+    # Get response from GPT for C++ translation
+    m_qer_gpt = generate_from_GPT(
+        key,
+        prompts=qer_messages,
+        max_tokens=max_tokens,
+        model=gpt_model,
+        n=1
+    )[0]["message"]
+
     qer_answer = m_qer_gpt["content"]
     qer_messages.append(m_qer_gpt)
     logging.info(f"qer (questioner) asked for the C++ translation:\n{qer_answer}")
@@ -497,8 +500,8 @@ def Ai_chat_with_Ai(key,fortran_code, max_tokens, gpt_model = DEFAULT_MODEL_ID, 
         "role": "assistant",
         "content": f"{ser_answer}"
     }
-    history.append(m_his)  
-    
+    history.append(m_his) 
+
     # Questioner asks for the unit test
     #-----------------------------------
     m_qer = {
@@ -513,7 +516,7 @@ def Ai_chat_with_Ai(key,fortran_code, max_tokens, gpt_model = DEFAULT_MODEL_ID, 
     qer_answer = m_qer_gpt["content"] 
     logging.info(f"Questioner asks for the unit test:\n{qer_answer}")   
     qer_messages.append(m_qer_gpt)
-    
+
     # Solver generates the unit test
     m_ser = {
         "role": "user",
@@ -534,262 +537,562 @@ def Ai_chat_with_Ai(key,fortran_code, max_tokens, gpt_model = DEFAULT_MODEL_ID, 
         "content": f"{ser_answer}"
     }
     history.append(m_his)  
-    
+
     """
     Compile, execute, and repair the pair of unit test codes
     """
-    #-----------------------------------
-    f_code_exe = ''
-    c_code_exe = ''
-    f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)    
-    
+
+    cuda_code_exe = ''
+    cpp_code_exe = ''
+    cuda_code_exe, cpp_code_exe = update_code_from_history(cuda_code_exe, cpp_code_exe, history)
+
     for turn in range(turns_limitation):
-        logging.info(f"Runing modification {turn}th turn")
-        # Initialize the solver message to avoid the potential impact from previous wrong answers
-        Init_solver = Init_solver_prompt.format(fortran_code = f_code_exe, cpp_code = c_code_exe)
+        logging.info(f"Running modification {turn}th turn")
+        
+        Init_solver = Init_solver_prompt.format(cuda_code=cuda_code_exe, cpp_code=cpp_code_exe)
         ser_message_unit_test = {
-        "role": "assistant",
-        "content": f"{Init_solver}"
+            "role": "assistant",
+            "content": f"{Init_solver}"
         }
         ser_messages_init_copy = ser_messages_init.copy()
         ser_messages_init_copy.append(ser_message_unit_test)
         ser_messages = ser_messages_init_copy
-        # Extract compile and execute fortran and cpp unit test
-        fortran_folder = '../sandbox/fortran'
+
+        # Create sandbox folders
+        cuda_folder = '../sandbox/cuda'
         cpp_folder = '../sandbox/cpp'
-        
-        os.makedirs(fortran_folder, exist_ok=True)
+        os.makedirs(cuda_folder, exist_ok=True)
         os.makedirs(cpp_folder, exist_ok=True)
-        logging.info("fortran code that need to be executed:\n {f_code_exe}")    
-        logging.info("c++ code that need to be executed:\n{c_code_exe}")  
-        fortran_stdout, fortran_stderr, fortran_p_f, cpp_stdout, cpp_stderr, cpp_p_f = run_codes(fortran_folder, f_code_exe, cpp_folder, c_code_exe)
-   
-        fortran_compile_result = f"Fortran Stdout: {fortran_stdout}\nFortran Stderr: {fortran_stderr}"
-        cpp_compile_result = f"C++ Stdout: {cpp_stdout}\nC++ Stderr: {cpp_stderr}"   
-        logging.info(f"fortran compile result in {turn}th turn:\n{fortran_compile_result}")
-        logging.info(f"cpp compile result in {turn}th turn:\n{cpp_compile_result}")
+
+        logging.info(f"CUDA code to be executed:\n{cuda_code_exe}")
+        logging.info(f"C++ code to be executed:\n{cpp_code_exe}")
         
-        # further modification / end
+        cuda_stdout, cuda_stderr, cuda_p_f, cpp_stdout, cpp_stderr, cpp_p_f = run_codes(
+            cuda_folder, cuda_code_exe, cpp_folder, cpp_code_exe
+        )
+
+        cuda_compile_result = f"CUDA Stdout: {cuda_stdout}\nCUDA Stderr: {cuda_stderr}"
+        cpp_compile_result = f"C++ Stdout: {cpp_stdout}\nC++ Stderr: {cpp_stderr}"
+        logging.info(f"CUDA compile result in {turn}th turn:\n{cuda_compile_result}")
+        logging.info(f"C++ compile result in {turn}th turn:\n{cpp_compile_result}")
+
         break_outer_loop = False
-        if fortran_p_f == False: # Modify fortran
-            
-            # Missing header files error
-            if b"undefined reference to" in fortran_stderr or b"No such file or directory" in fortran_stderr:
-                modification_prompt = combine_header_files_fortran.format(compile_result = f"Fortran Compile Stderr:{fortran_stderr}")
-                try:
-                    fur_modification(history, 
-                            ser_messages, 
-                            modification_prompt)
-                except:
-                    break
-                content=history[-1]["content"];
-                logging.info("Add fortran head file:\n{content}") 
-                f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)
-                
-            # Other errors
+
+        if not cuda_p_f:  # Modify CUDA code
+            if b"undefined reference to" in cuda_stderr or b"No such file or directory" in cuda_stderr:
+                modification_prompt = combine_header_files_cuda.format(compile_result=f"CUDA Compile Stderr: {cuda_stderr}")
             else:
-                modification_prompt = ff_ct_further_modification.format(fortran_compile_result = fortran_compile_result)
-                try:
-                    fur_modification(history, 
-                                        ser_messages, 
-                                        modification_prompt)   
-                except:
-                    break 
-                content=history[-1]["content"];
-                logging.info("ff_ct gpt answer:\n{content}")      
-                f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)        
-        
-        if cpp_p_f == False: # Modify cpp
-            
-            # Missing header files error
-            if b"undefined reference to" in cpp_stderr or b"No such file or directory" in cpp_stderr:
-                modification_prompt = combine_header_files_cpp.format(compile_result = f"C++ Compile Stderr:{cpp_stderr}")
-                try:
-                    fur_modification(history, 
-                            ser_messages, 
-                            modification_prompt)
-                except:
-                    break 
-                content = history[-1]["content"]
-                logging.info("Add c++ head file:\n{content}") 
-                f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)  
-            
-            #  Missing terminating error
-            elif b'missing terminating " character' in cpp_stderr:         
-                modification_prompt = missing_terminating.format(cpp_compile_result = cpp_compile_result)
-                try:
-                    fur_modification(history, 
-                                        ser_messages, 
-                                        modification_prompt)   
-                except:
-                    break                  
-                content = history[-1]["content"]
-                logging.info("Missing terminating:\n{content}")     
-                f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)   
-                 
-            # Other errors
-            else:
-                modification_prompt = ft_cf_further_modification.format(cpp_compile_result = cpp_compile_result)
-                try:
-                    fur_modification(history, 
-                                        ser_messages, 
-                                        modification_prompt)     
-                except:
-                    break                 
-                content =  history[-1]["content"]
-                logging.info("ft_cf gpt answer:\n{content}")     
-                f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)                               
-                 
-        if fortran_p_f == True and cpp_p_f == True:
-            decision_prompt = ft_ct_further_check.format(fortran_compile_result = fortran_compile_result,
-                                                         cpp_compile_result = cpp_compile_result) 
+                modification_prompt = cu_ct_further_modification.format(cuda_compile_result=cuda_compile_result)
+
             try:
-                fur_modification(history, 
-                                    ser_messages, 
-                                    decision_prompt)  
+                fur_modification(history, ser_messages, modification_prompt)
             except:
                 break
-            content = history[-1]["content"] 
-            logging.info("ft_ct gpt answer:\n{content}")
-            f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)              
+
+            content = history[-1]["content"]
+            logging.info(f"CUDA GPT answer:\n{content}")
+            cuda_code_exe, cpp_code_exe = update_code_from_history(cuda_code_exe, cpp_code_exe, history)
+
+        if not cpp_p_f:  # Modify C++ code
+            if b"undefined reference to" in cpp_stderr or b"No such file or directory" in cpp_stderr:
+                modification_prompt = combine_header_files_cpp.format(compile_result=f"C++ Compile Stderr: {cpp_stderr}")
+            elif b'missing terminating " character' in cpp_stderr:
+                modification_prompt = missing_terminating.format(cpp_compile_result=cpp_compile_result)
+            else:
+                modification_prompt = ft_cf_further_modification.format(cpp_compile_result=cpp_compile_result)
+
+            try:
+                fur_modification(history, ser_messages, modification_prompt)
+            except:
+                break
+
+            content = history[-1]["content"]
+            logging.info(f"C++ GPT answer:\n{content}")
+            cuda_code_exe, cpp_code_exe = update_code_from_history(cuda_code_exe, cpp_code_exe, history)
+
+        if cuda_p_f and cpp_p_f:
+            decision_prompt = cu_ct_further_check.format(
+                cuda_compile_result=cuda_compile_result,
+                cpp_compile_result=cpp_compile_result
+            )
+            try:
+                fur_modification(history, ser_messages, decision_prompt)
+            except:
+                break
+
+            content = history[-1]["content"]
+            logging.info(f"cu_ct gpt answer:\n{content}")
+            cuda_code_exe, cpp_code_exe = update_code_from_history(cuda_code_exe, cpp_code_exe, history)
+
             for end_check in range(2):
-                Str_y_n = history[-1]["content"]    
-                if "yes" in Str_y_n.lower():
+                str_y_n = history[-1]["content"]
+                if "yes" in str_y_n.lower():
                     end_prompt = end_prompt_
-                    fur_modification(history, 
-                                        ser_messages, 
-                                        end_prompt)
+                    fur_modification(history, ser_messages, end_prompt)
                     content = history[-1]["content"]
-                    logging.info("yes\n{content}")
-                    break_outer_loop = True # break outer layer
-                    f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history) 
-                    # save the code to readable file with different names
-                    with open(f'F2C-Translator/data/final_pairs/fortran_code{idx}.f90', 'w') as file:
-                        file.write(f_code_exe)
+                    logging.info(f"yes\n{content}")
+                    break_outer_loop = True
+
+                    cuda_code_exe, cpp_code_exe = update_code_from_history(cuda_code_exe, cpp_code_exe, history)
+
+                    with open(f'F2C-Translator/data/final_pairs/cuda_code{idx}.cu', 'w') as file:
+                        file.write(cuda_code_exe)
                     with open(f'F2C-Translator/data/final_pairs/cpp_code{idx}.cpp', 'w') as file:
-                        file.write(c_code_exe)                 
+                        file.write(cpp_code_exe)
                     break
-                elif "no" in Str_y_n.lower():
-                    further_modification = further_modification_
-                    fur_modification(history, 
-                                        ser_messages, 
-                                        further_modification)
+                elif "no" in str_y_n.lower():
+                    fur_modification(history, ser_messages, further_modification_)
                     content = history[-1]["content"]
-                    logging.info("no\n{content}")
-                    f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)                     
+                    logging.info(f"no\n{content}")
+                    cuda_code_exe, cpp_code_exe = update_code_from_history(cuda_code_exe, cpp_code_exe, history)
                     break
                 else:
-                    clear_prompt = clear_prompt_       
-                    fur_modification(history, 
-                                        ser_messages, 
-                                        clear_prompt)                             
+                    fur_modification(history, ser_messages, clear_prompt_)
                     content = history[-1]["content"]
-                    logging.info("unclear\n{content}")
-                    f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)                 
+                    logging.info(f"unclear\n{content}")
+                    cuda_code_exe, cpp_code_exe = update_code_from_history(cuda_code_exe, cpp_code_exe, history)
+
         if break_outer_loop:
             break
-                
     return history,break_outer_loop
 
 
+# def Ai_chat_with_Ai(key,fortran_code, max_tokens, gpt_model = DEFAULT_MODEL_ID, turns_limitation = 3, idx = 0):
+#     """
+#     Simulate a conversation between a questioner and a solver using an AI model to translate Fortran code
+#     to C++ and generate unit tests, handling errors and updates iteratively.
+
+#     Args:
+#         key (str): API key for accessing the AI model.
+#         fortran_code (str): The Fortran code to be translated and tested.
+#         max_tokens (int): Maximum number of tokens for AI responses.
+#         gpt_model (str): Model name for the AI.
+#         turns_limitation (int): Number of modification turns to perform (default is 3).
+
+#     Returns:
+#         tuple: History of the conversation and a flag indicating if the process should stop.
+#     """
+
+#     qer_messages = []
+#     ser_messages = []
+#     history = []
+    
+#     # define the role of questioner
+#     m_qer = {
+#         "role": "system",
+#         "content": Instruction_qer
+#     }    
+#     qer_messages.append(m_qer) # system role defined
+    
+#     # Start the conversation
+#     m_qer = {
+#         "role": "user",
+#         "content": q_ask_s_translation.format(fortran_code = fortran_code)
+#     }  
+#     qer_messages.append(m_qer) # user provides the question
+    
+#     # Questioner asks for the C++ translation from Fortran
+#     #-----------------------------------
+#     m_qer_gpt = generate_from_GPT(key,prompts=qer_messages, 
+#                                 max_tokens=max_tokens, 
+#                                 model=gpt_model, 
+#                                 n=1)[0]["message"]
+#     qer_answer = m_qer_gpt["content"]
+#     qer_messages.append(m_qer_gpt)
+#     logging.info(f"qer (questioner) asked for the C++ translation:\n{qer_answer}")
+    
+#     # Solver generates the C++ translation
+#     m_ser = {
+#         "role": "user",
+#         "content": f"{qer_answer}"
+#     }
+#     ser_messages.append(m_ser)
+#     history.append(m_ser)
+#     m_ser_gpt = generate_from_GPT(key,prompts=ser_messages, 
+#                                 max_tokens=max_tokens, 
+#                                 model=gpt_model, 
+#                                 n=1)[0]["message"]
+#     ser_answer = m_ser_gpt["content"]
+#     logging.info(f"Solver generated the C++ translation:\n{ser_answer}")
+#     ser_messages.append(m_ser_gpt)
+#     m_his = {
+#         "role": "assistant",
+#         "content": f"{ser_answer}"
+#     }
+#     history.append(m_his)  
+    
+#     # Questioner asks for the unit test
+#     #-----------------------------------
+#     m_qer = {
+#         "role": "user",
+#         "content": q_ask_s_unit_test.format(ser_answer = ser_answer)
+#     }  
+#     qer_messages.append(m_qer)  
+#     m_qer_gpt = generate_from_GPT(key,prompts=qer_messages, 
+#                                 max_tokens=max_tokens, 
+#                                 model=gpt_model, 
+#                                 n=1)[0]["message"]
+#     qer_answer = m_qer_gpt["content"] 
+#     logging.info(f"Questioner asks for the unit test:\n{qer_answer}")   
+#     qer_messages.append(m_qer_gpt)
+    
+#     # Solver generates the unit test
+#     m_ser = {
+#         "role": "user",
+#         "content": f"{qer_answer}"
+#     }
+#     ser_messages.append(m_ser)
+#     history.append(m_ser)
+#     m_ser_gpt = generate_from_GPT(key,prompts=ser_messages, 
+#                                 max_tokens=max_tokens, 
+#                                 model=gpt_model, 
+#                                 n=1)[0]["message"]
+#     ser_answer = m_ser_gpt["content"]    
+#     logging.info(f"Solver generate the unit test:\n{ser_answer}")   
+#     ser_messages_init = ser_messages
+#     ser_messages.append(m_ser_gpt)
+#     m_his = {
+#         "role": "assistant",
+#         "content": f"{ser_answer}"
+#     }
+#     history.append(m_his)  
+    
+#     """
+#     Compile, execute, and repair the pair of unit test codes
+#     """
+#     #-----------------------------------
+#     f_code_exe = ''
+#     c_code_exe = ''
+#     f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)    
+    
+#     for turn in range(turns_limitation):
+#         logging.info(f"Runing modification {turn}th turn")
+#         # Initialize the solver message to avoid the potential impact from previous wrong answers
+#         Init_solver = Init_solver_prompt.format(fortran_code = f_code_exe, cpp_code = c_code_exe)
+#         ser_message_unit_test = {
+#         "role": "assistant",
+#         "content": f"{Init_solver}"
+#         }
+#         ser_messages_init_copy = ser_messages_init.copy()
+#         ser_messages_init_copy.append(ser_message_unit_test)
+#         ser_messages = ser_messages_init_copy
+#         # Extract compile and execute fortran and cpp unit test
+#         fortran_folder = '../sandbox/fortran'
+#         cpp_folder = '../sandbox/cpp'
+        
+#         os.makedirs(fortran_folder, exist_ok=True)
+#         os.makedirs(cpp_folder, exist_ok=True)
+#         logging.info("fortran code that need to be executed:\n {f_code_exe}")    
+#         logging.info("c++ code that need to be executed:\n{c_code_exe}")  
+#         fortran_stdout, fortran_stderr, fortran_p_f, cpp_stdout, cpp_stderr, cpp_p_f = run_codes(fortran_folder, f_code_exe, cpp_folder, c_code_exe)
+   
+#         fortran_compile_result = f"Fortran Stdout: {fortran_stdout}\nFortran Stderr: {fortran_stderr}"
+#         cpp_compile_result = f"C++ Stdout: {cpp_stdout}\nC++ Stderr: {cpp_stderr}"   
+#         logging.info(f"fortran compile result in {turn}th turn:\n{fortran_compile_result}")
+#         logging.info(f"cpp compile result in {turn}th turn:\n{cpp_compile_result}")
+        
+#         # further modification / end
+#         break_outer_loop = False
+#         if fortran_p_f == False: # Modify fortran
+            
+#             # Missing header files error
+#             if b"undefined reference to" in fortran_stderr or b"No such file or directory" in fortran_stderr:
+#                 modification_prompt = combine_header_files_fortran.format(compile_result = f"Fortran Compile Stderr:{fortran_stderr}")
+#                 try:
+#                     fur_modification(history, 
+#                             ser_messages, 
+#                             modification_prompt)
+#                 except:
+#                     break
+#                 content=history[-1]["content"];
+#                 logging.info("Add fortran head file:\n{content}") 
+#                 f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)
+                
+#             # Other errors
+#             else:
+#                 modification_prompt = ff_ct_further_modification.format(fortran_compile_result = fortran_compile_result)
+#                 try:
+#                     fur_modification(history, 
+#                                         ser_messages, 
+#                                         modification_prompt)   
+#                 except:
+#                     break 
+#                 content=history[-1]["content"];
+#                 logging.info("ff_ct gpt answer:\n{content}")      
+#                 f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)        
+        
+#         if cpp_p_f == False: # Modify cpp
+            
+#             # Missing header files error
+#             if b"undefined reference to" in cpp_stderr or b"No such file or directory" in cpp_stderr:
+#                 modification_prompt = combine_header_files_cpp.format(compile_result = f"C++ Compile Stderr:{cpp_stderr}")
+#                 try:
+#                     fur_modification(history, 
+#                             ser_messages, 
+#                             modification_prompt)
+#                 except:
+#                     break 
+#                 content = history[-1]["content"]
+#                 logging.info("Add c++ head file:\n{content}") 
+#                 f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)  
+            
+#             #  Missing terminating error
+#             elif b'missing terminating " character' in cpp_stderr:         
+#                 modification_prompt = missing_terminating.format(cpp_compile_result = cpp_compile_result)
+#                 try:
+#                     fur_modification(history, 
+#                                         ser_messages, 
+#                                         modification_prompt)   
+#                 except:
+#                     break                  
+#                 content = history[-1]["content"]
+#                 logging.info("Missing terminating:\n{content}")     
+#                 f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)   
+                 
+#             # Other errors
+#             else:
+#                 modification_prompt = ft_cf_further_modification.format(cpp_compile_result = cpp_compile_result)
+#                 try:
+#                     fur_modification(history, 
+#                                         ser_messages, 
+#                                         modification_prompt)     
+#                 except:
+#                     break                 
+#                 content =  history[-1]["content"]
+#                 logging.info("ft_cf gpt answer:\n{content}")     
+#                 f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)                               
+                 
+#         if fortran_p_f == True and cpp_p_f == True:
+#             decision_prompt = ft_ct_further_check.format(fortran_compile_result = fortran_compile_result,
+#                                                          cpp_compile_result = cpp_compile_result) 
+#             try:
+#                 fur_modification(history, 
+#                                     ser_messages, 
+#                                     decision_prompt)  
+#             except:
+#                 break
+#             content = history[-1]["content"] 
+#             logging.info("ft_ct gpt answer:\n{content}")
+#             f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)              
+#             for end_check in range(2):
+#                 Str_y_n = history[-1]["content"]    
+#                 if "yes" in Str_y_n.lower():
+#                     end_prompt = end_prompt_
+#                     fur_modification(history, 
+#                                         ser_messages, 
+#                                         end_prompt)
+#                     content = history[-1]["content"]
+#                     logging.info("yes\n{content}")
+#                     break_outer_loop = True # break outer layer
+#                     f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history) 
+#                     # save the code to readable file with different names
+#                     with open(f'F2C-Translator/data/final_pairs/fortran_code{idx}.f90', 'w') as file:
+#                         file.write(f_code_exe)
+#                     with open(f'F2C-Translator/data/final_pairs/cpp_code{idx}.cpp', 'w') as file:
+#                         file.write(c_code_exe)                 
+#                     break
+#                 elif "no" in Str_y_n.lower():
+#                     further_modification = further_modification_
+#                     fur_modification(history, 
+#                                         ser_messages, 
+#                                         further_modification)
+#                     content = history[-1]["content"]
+#                     logging.info("no\n{content}")
+#                     f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)                     
+#                     break
+#                 else:
+#                     clear_prompt = clear_prompt_       
+#                     fur_modification(history, 
+#                                         ser_messages, 
+#                                         clear_prompt)                             
+#                     content = history[-1]["content"]
+#                     logging.info("unclear\n{content}")
+#                     f_code_exe,c_code_exe = update_code_from_history(f_code_exe, c_code_exe, history)                 
+#         if break_outer_loop:
+#             break
+                
+#     return history,break_outer_loop
 
 def generate_data(key, input_dataset, output_file, gpt_model=DEFAULT_MODEL_ID):
     """
-    Processes a dataset of Fortran codes to generate cleaned and translated code along with explanations.
+    Processes a dataset of CUDA codes to generate cleaned and translated C++ code along with explanations.
     The results are saved to an output file.
 
     Args:
         key (str): API key for accessing the AI model.
-        input_dataset (dict): Dictionary containing Fortran code snippets.
+        input_dataset (dict): Dictionary containing CUDA code snippets.
         output_file (str): Path to the output file where results will be saved.
         gpt_model (str): Name of the GPT model to be used.
 
     Returns:
         None
     """    
-    # initialize the list for holding each row of the dataset
     dialogues = []
-    
-    # select source fortran codes from a dataset
+
     for idx in range(len(input_dataset['code'])):
         logging.info(f"Working on the {idx}th code...")
-        fortran_code = input_dataset['code'][idx]
-        
-        # Count the length of the input tokens
-        encoding = tiktoken.encoding_for_model(DEFAULT_MODEL_ID)
-        token_count = len(encoding.encode(fortran_code + "\n",disallowed_special=()))
-        
-        # set a upper limit of the length of the input prompt and generate the answer
+        cuda_code = input_dataset['code'][idx]
+
+        encoding = tiktoken.encoding_for_model(gpt_model)
+        token_count = len(encoding.encode(cuda_code + "\n", disallowed_special=()))
+
         if token_count < 3700:
-            max_tokens= 256 + token_count
-            
-            # Step 1: delete the comments of the source fortran code
-            fortran_wo_com = delete_comments.format(Fortran_Code = fortran_code)
-            fortran_wo_com = generate_str_answer_gpt(fortran_wo_com, max_tokens)
-            fortran_wo_com = fortran_wo_com.encode().decode('unicode_escape','replace')
-            # fortran_wo_com = remove_fortran_comments_fixed(fortran_code) 
-            
-            logging.info(f"fortran_wo_com:\n{fortran_wo_com}")
-            encoding = tiktoken.encoding_for_model(DEFAULT_MODEL_ID)
-            token_count = len(encoding.encode(fortran_wo_com,disallowed_special=()))     
-            logging.info(f"fortran_wo_com tokenn_count:\{token_count}")
-            # control the length
-            if token_count < 600:     
-                fortran_start = fortran_wo_com.find("```fortran") + 10
-                if fortran_start == 9:
-                    logging.info("Did not find the fortran code!")
+            max_tokens = 256 + token_count
+
+            # Step 1: Delete comments using LLM
+            cuda_wo_com_prompt = delete_comments.format(Cuda_Code=cuda_code)
+            cuda_wo_com = generate_str_answer_gpt(cuda_wo_com_prompt, max_tokens)
+            cuda_wo_com = cuda_wo_com.encode().decode('unicode_escape', 'replace')
+
+            logging.info(f"cuda_wo_com:\n{cuda_wo_com}")
+            token_count = len(encoding.encode(cuda_wo_com, disallowed_special=()))
+            logging.info(f"cuda_wo_com token_count: {token_count}")
+
+            if token_count < 600:
+                cuda_start = cuda_wo_com.find("```cuda") + 7
+                if cuda_start == 6:
+                    logging.info("Did not find the CUDA code block!")
                     continue
                 else:
-                    fortran_end = fortran_wo_com.find("```", fortran_start)
-                    fortran_wo_com = fortran_wo_com[fortran_start:fortran_end].strip()
-                try:
-                    fortran_wo_com
-                except NameError as e:
-                    logging.info("Did not find the fortran code!\n{str(e)}")
-                    continue 
-                
-                # Step 2: Remove non-executable code 
-                skip_code = False
-                
-                # Remove code that contains external file reading operations
-                keywords_to_remove = ['OPEN', 'READ', 'WRITE', 'CLOSE']
-                if any(keyword in fortran_wo_com for keyword in keywords_to_remove):
-                    skip_code = True
-                    logging.info("This fortran code contains external file reading operations, it will be skipped!")
+                    cuda_end = cuda_wo_com.find("```", cuda_start)
+                    cuda_wo_com = cuda_wo_com[cuda_start:cuda_end].strip()
 
-                # Remove code that contains operations for user input
-                keywords_to_remove = ['GET_ENVIRONMENT_VARIABLE', 
-                                      'READ', 
-                                      'GET_COMMAND_ARGUMENT', 
-                                      'IARGC',
-                                      'GETARG']
-                             
-                if any(keyword in fortran_wo_com.upper() for keyword in keywords_to_remove):
+                try:
+                    cuda_wo_com
+                except NameError as e:
+                    logging.info(f"Did not find the CUDA code!\n{str(e)}")
+                    continue 
+
+                # Step 2: Remove non-executable or unsupported code
+                skip_code = False
+
+                keywords_to_remove = ['fopen', 'fscanf', 'fprintf', 'fread', 'fwrite']
+                if any(keyword in cuda_wo_com for keyword in keywords_to_remove):
                     skip_code = True
-                    logging.info("This Fortran code contains operations for user input, it will be skipped!")    
-                    
-                # Remove Fortran code containing undefined external functions
-                if_contain_ext = if_contain_ext_prompt.format(Fortran_Code = fortran_wo_com)
+                    logging.info("This CUDA code contains external file operations, it will be skipped!")
+
+                if_contain_ext = if_contain_ext_prompt.format(Cuda_Code=cuda_wo_com)
                 if_contain_ext = generate_str_answer_gpt(if_contain_ext, max_tokens)
                 if_contain_ext = if_contain_ext.encode().decode('unicode_escape')    
                 if "no" not in if_contain_ext.lower():      
                     skip_code = True             
-                    logging.info("This Fortran code contains undefined external functions, it will be skipped!")          
-                                               
-                # Step 3: get function of the code; translated cpp code and explanation    
-                if skip_code == False:
+                    logging.info("This CUDA code contains undefined external functions, it will be skipped!")          
+
+                # Step 3: Get translated C++ and explanation via dialogue
+                if not skip_code:
                     try:
-                        history,break_outer_loop = Ai_chat_with_Ai(key,
-                                                fortran_wo_com, 
-                                                max_tokens = 4096, 
-                                                gpt_model = gpt_model,
-                                                turns_limitation = 7,
-                                                idx = idx)
-                    except:
-                        logging.info("Skip!\n{str(e)}")
+                        history, break_outer_loop = Ai_chat_with_Ai(
+                            key=key,
+                            cuda_code=cuda_wo_com,
+                            max_tokens=4096,
+                            gpt_model=gpt_model,
+                            turns_limitation=7,
+                            idx=idx
+                        )
+                    except Exception as e:
+                        logging.info(f"Skip due to error!\n{str(e)}")
                         continue 
                     if break_outer_loop:
                         add_to_json(history, output_file)
+
+
+# def generate_data(key, input_dataset, output_file, gpt_model=DEFAULT_MODEL_ID):
+#     """
+#     Processes a dataset of Fortran codes to generate cleaned and translated code along with explanations.
+#     The results are saved to an output file.
+
+#     Args:
+#         key (str): API key for accessing the AI model.
+#         input_dataset (dict): Dictionary containing Fortran code snippets.
+#         output_file (str): Path to the output file where results will be saved.
+#         gpt_model (str): Name of the GPT model to be used.
+
+#     Returns:
+#         None
+#     """    
+#     # initialize the list for holding each row of the dataset
+#     dialogues = []
+    
+#     # select source fortran codes from a dataset
+#     for idx in range(len(input_dataset['code'])):
+#         logging.info(f"Working on the {idx}th code...")
+#         fortran_code = input_dataset['code'][idx]
+        
+#         # Count the length of the input tokens
+#         encoding = tiktoken.encoding_for_model(DEFAULT_MODEL_ID)
+#         token_count = len(encoding.encode(fortran_code + "\n",disallowed_special=()))
+        
+#         # set a upper limit of the length of the input prompt and generate the answer
+#         if token_count < 3700:
+#             max_tokens= 256 + token_count
+            
+#             # Step 1: delete the comments of the source fortran code
+#             fortran_wo_com = delete_comments.format(Fortran_Code = fortran_code)
+#             fortran_wo_com = generate_str_answer_gpt(fortran_wo_com, max_tokens)
+#             fortran_wo_com = fortran_wo_com.encode().decode('unicode_escape','replace')
+#             # fortran_wo_com = remove_fortran_comments_fixed(fortran_code) 
+            
+#             logging.info(f"fortran_wo_com:\n{fortran_wo_com}")
+#             encoding = tiktoken.encoding_for_model(DEFAULT_MODEL_ID)
+#             token_count = len(encoding.encode(fortran_wo_com,disallowed_special=()))     
+#             logging.info(f"fortran_wo_com tokenn_count:\{token_count}")
+#             # control the length
+#             if token_count < 600:     
+#                 fortran_start = fortran_wo_com.find("```fortran") + 10
+#                 if fortran_start == 9:
+#                     logging.info("Did not find the fortran code!")
+#                     continue
+#                 else:
+#                     fortran_end = fortran_wo_com.find("```", fortran_start)
+#                     fortran_wo_com = fortran_wo_com[fortran_start:fortran_end].strip()
+#                 try:
+#                     fortran_wo_com
+#                 except NameError as e:
+#                     logging.info("Did not find the fortran code!\n{str(e)}")
+#                     continue 
+                
+#                 # Step 2: Remove non-executable code 
+#                 skip_code = False
+                
+#                 # Remove code that contains external file reading operations
+#                 keywords_to_remove = ['OPEN', 'READ', 'WRITE', 'CLOSE']
+#                 if any(keyword in fortran_wo_com for keyword in keywords_to_remove):
+#                     skip_code = True
+#                     logging.info("This fortran code contains external file reading operations, it will be skipped!")
+
+#                 # Remove code that contains operations for user input
+#                 keywords_to_remove = ['GET_ENVIRONMENT_VARIABLE', 
+#                                       'READ', 
+#                                       'GET_COMMAND_ARGUMENT', 
+#                                       'IARGC',
+#                                       'GETARG']
+                             
+#                 if any(keyword in fortran_wo_com.upper() for keyword in keywords_to_remove):
+#                     skip_code = True
+#                     logging.info("This Fortran code contains operations for user input, it will be skipped!")    
+                    
+#                 # Remove Fortran code containing undefined external functions
+#                 if_contain_ext = if_contain_ext_prompt.format(Fortran_Code = fortran_wo_com)
+#                 if_contain_ext = generate_str_answer_gpt(if_contain_ext, max_tokens)
+#                 if_contain_ext = if_contain_ext.encode().decode('unicode_escape')    
+#                 if "no" not in if_contain_ext.lower():      
+#                     skip_code = True             
+#                     logging.info("This Fortran code contains undefined external functions, it will be skipped!")          
+                                               
+#                 # Step 3: get function of the code; translated cpp code and explanation    
+#                 if skip_code == False:
+#                     try:
+#                         history,break_outer_loop = Ai_chat_with_Ai(key,
+#                                                 fortran_wo_com, 
+#                                                 max_tokens = 4096, 
+#                                                 gpt_model = gpt_model,
+#                                                 turns_limitation = 7,
+#                                                 idx = idx)
+#                     except:
+#                         logging.info("Skip!\n{str(e)}")
+#                         continue 
+#                     if break_outer_loop:
+#                         add_to_json(history, output_file)
             
 
     
